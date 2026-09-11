@@ -1,0 +1,75 @@
+/* =============================================
+   USER MESSAGES (anchored right, max 45% width)
+   ============================================= */
+vaadin-message.user-message,
+vaadin-message[theme~="user-message"] {
+  flex-direction: row !important;      /* avatar on left, content on right */
+  margin-left: auto !important;        /* anchors block to the right edge */
+  margin-right: 0 !important;
+  width: fit-content !important;        
+  max-width: 45% !important;           /* STOPS message at center right (prevents overlap) */
+  text-align: left !important;
+  gap: var(--lumo-space-m, 1rem);      /* spacing between avatar and content */
+}
+
+vaadin-message.user-message::part(avatar),
+vaadin-message[theme~="user-message"]::part(avatar) {
+  order: -1 !important;                /* keeps avatar on the left side */
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  flex-shrink: 0 !important;           /* prevents avatar from squishing */
+}
+
+vaadin-message.user-message::part(content),
+vaadin-message[theme~="user-message"]::part(content) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;  
+  text-align: left !important;
+  min-width: 0 !important;             /* required for CSS flex text wrapping */
+}
+
+vaadin-message.user-message::part(message),
+vaadin-message[theme~="user-message"]::part(message) {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;  /* forces long text/URL to wrap down */
+}
+
+
+/* ===========================================
+   BOT MESSAGES (anchored left, max 45% width)
+   =========================================== */
+vaadin-message.bot-message,
+vaadin-message[theme~="bot-message"] {
+  flex-direction: row !important;      /* avatar on left, content on right */
+  margin-right: auto !important;       /* anchors block to the left edge */
+  margin-left: 0 !important;
+  width: fit-content !important;
+  max-width: 45% !important;           /* STOPS message at center left (prevents overlap) */
+  text-align: left !important;
+  gap: var(--lumo-space-m, 1rem);
+}
+
+vaadin-message.bot-message::part(avatar),
+vaadin-message[theme~="bot-message"]::part(avatar) {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+vaadin-message.bot-message::part(content),
+vaadin-message[theme~="bot-message"]::part(content) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+  min-width: 0 !important;
+}
+
+vaadin-message.bot-message::part(message),
+vaadin-message[theme~="bot-message"]::part(message) {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}

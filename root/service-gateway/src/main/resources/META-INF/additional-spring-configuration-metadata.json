@@ -1,0 +1,12 @@
+{"properties": [
+  {
+    "name": "spring.security.oauth2.resourceserver.jwt.secret-key",
+    "type": "java.lang.String",
+    "description": "a description for 'spring.security.oauth2.resourceserver.jwt.secret-key'"
+  },
+  {
+    "name": "jwt.public-key-location",
+    "type": "java.lang.String",
+    "description": "a description for 'jwt.public-key-location'"
+  }
+]}

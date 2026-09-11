@@ -1,0 +1,55 @@
+@font-face {
+  font-family: 'Google Sans Flex';
+  src: url('fonts/GoogleSansFlex.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('fonts/RobotoMono.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Story Script';
+  src: url('fonts/StoryScript.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.googlesansflex {
+  font-family: 'Google Sans Flex';
+}
+
+/* html, body {
+  font-family: 'Google Sans Flex', sans-serif;
+} */
+
+.dashboard_card_title {
+  font-family: 'Google Sans Flex';
+}
+
+.dashboard_card_value {
+  font-family: 'Google Sans Flex';
+}
+
+.superstore {
+  font-family: 'Story Script';
+}
+
+.breadcrumb {
+  font-family: 'Google Sans Flex';
+}
+
+.footer {
+  font-family: 'Google Sans Flex';
+}
+
+.bill_total_mono {
+  font-family: 'Roboto Mono';
+}

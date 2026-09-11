@@ -1,0 +1,38 @@
+name: superstore
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: checkout from GitHub
+      uses: actions/checkout@v4
+
+    - name: install Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '25'
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: install Node.js (required for Vaadin frontend build)
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    # - name: test with Maven
+    #   run: mvn -B test
+
+    - name: build and test with Maven
+      run: mvn -B verify
+
+    # better placed in a separate scheduled workflow or conditionally executed
+    # - name: check Security Vulnerabilities
+    #   run: mvn -B org.owasp:dependency-check-maven:check

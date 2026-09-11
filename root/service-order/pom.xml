@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	
+	<modelVersion>4.0.0</modelVersion>
+
+	<!-- 
+		points parent to root POM.
+	-->
+	<parent>
+        <groupId>com.superstore</groupId>
+        <artifactId>root</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+	
+	<!-- 
+		groupId and version are inherited from parent, only artifactId is strictly required.
+	-->
+	<artifactId>service-order</artifactId>
+	<name>service-order</name>
+
+	<description/>
+
+	<url/>
+
+	<licenses>
+		<license/>
+	</licenses>
+	
+	<developers>
+		<developer/>
+	</developers>
+	
+	<scm>
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
+	</scm>
+
+	<properties>
+		<!-- inherits properties from the parent. -->		
+	</properties>
+
+	<dependencyManagement>
+		<!-- inherits from root, anything inside the root's <dependencyManagement> is automatically available to the child. -->
+		<dependencies>
+			<dependency>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<groupId>org.springframework.cloud</groupId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+				<exclusions>
+					<exclusion>
+						<groupId>org.springframework.boot</groupId>
+						<artifactId>spring-boot-starter-logging</artifactId>
+					</exclusion>
+				</exclusions>
+			</dependency>
+    	</dependencies>
+	</dependencyManagement>
+
+	<dependencies>
+		<!-- inherits from root, anything inside the root's <dependencies> is automatically available to the child. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+			<exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-session-data-redis</artifactId>
+			<exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-starter-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+	</dependencies>	
+
+	<build>
+		<plugins>
+			<!-- 
+				if service-order is your main entry point (the executable module with the @SpringBootApplication class), uncomment this build block. 
+				if it's just a shared library module, leave it deleted.
+			-->
+			<!-- 
+				modules do not need the Spring Boot build plugin because they are not meant to be executed independently as runnable JAR.
+				they are just library jars.
+			-->
+		</plugins>
+	</build>
+
+</project>

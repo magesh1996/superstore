@@ -1,0 +1,139 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Debug using Hotswap Agent",
+            "request": "launch",
+            "javaExec": "C:\\Users\\mages\\.vaadin\\jdk\\jbrsdk-25-windows-x64-b176.4\\bin\\java.exe",
+            "mainClass": "com.superstore.product.ServiceProductApplication",
+            "vmArgs": "--add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/sun.security.action=ALL-UNNAMED --add-opens java.desktop/java.beans=ALL-UNNAMED --add-opens java.desktop/com.sun.beans=ALL-UNNAMED --add-opens java.desktop/com.sun.beans.introspect=ALL-UNNAMED --add-opens java.desktop/com.sun.beans.util=ALL-UNNAMED --add-opens java.base/jdk.internal.loader=ALL-UNNAMED -XX:+AllowEnhancedClassRedefinition -XX:+ClassUnloading -javaagent:C:\\Users\\mages\\.vaadin\\vscode-plugin\\hotswap-agent.jar"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceAppApplication<service-app>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.shopkeeper.app.ServiceAppApplication",
+            "projectName": "service-app",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=51410 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=service-app"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceOrderApplication<service-order>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.shopkeeper.order.ServiceOrderApplication",
+            "projectName": "service-order",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=62020 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=service-order"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceProductApplication<service-product>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.shopkeeper.product.ServiceProductApplication",
+            "projectName": "service-product",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=62021 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=service-product"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceGatewayApplication<service-gateway>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.shopkeeper.gateway.ServiceGatewayApplication",
+            "projectName": "service-gateway",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceEurekaApplication<service-eureka>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.shopkeeper.eureka.ServiceEurekaApplication",
+            "projectName": "service-eureka",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceEurekaApplication<service-eureka>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.superstore.eureka.ServiceEurekaApplication",
+            "projectName": "service-eureka",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=60951 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=service-eureka"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceProductApplication<service-product>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.superstore.product.ServiceProductApplication",
+            "projectName": "service-product",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=59659 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=service-product"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceOrderApplication<service-order>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.superstore.order.ServiceOrderApplication",
+            "projectName": "service-order",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceGatewayApplication<service-gateway>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.superstore.gateway.ServiceGatewayApplication",
+            "projectName": "service-gateway",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=51132 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=service-gateway"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceAppApplication<service-app>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.superstore.app.ServiceAppApplication",
+            "projectName": "service-app",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=65134 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=service-app"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceChatbotApplication<service-chatbot>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.superstore.chatbot.ServiceChatbotApplication",
+            "projectName": "service-chatbot",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ServiceSecurityApplication<service-security>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.superstore.security.ServiceSecurityApplication",
+            "projectName": "service-security",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

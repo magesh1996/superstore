@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Configuration status="WARN">
+    
+    <Properties>
+        <Property name="BASE_LOG_PATH">C:/project/logs/superstore</Property>
+    </Properties>
+
+    <Appenders>
+        
+        <Console name="ConsoleAppender" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+
+        <Routing name="DynamicRoutingAppender">
+
+            <Routes pattern="${ctx:serviceName}_$${ctx:loggerName}">
+
+                <Route>
+                    <RollingFile name="RollingFile-${ctx:serviceName}-${ctx:loggerName}"
+                                 fileName="${BASE_LOG_PATH}/${ctx:serviceName:-default}/${ctx:loggerName:-service-product}.log"
+                                 filePattern="${BASE_LOG_PATH}/${ctx:serviceName:-default}/${ctx:loggerName:-service-product}-%d{yyyy-MM-dd}-%i.log.gz">                    
+                        <JsonTemplateLayout eventTemplateUri="classpath:Log4j2-JsonLayout.json"/>
+                        <Policies>
+                            <TimeBasedTriggeringPolicy interval="1" modulate="true" />
+                            <SizeBasedTriggeringPolicy size="10 MB" />
+                        </Policies>
+                        <DefaultRolloverStrategy max="10" />
+                    </RollingFile>
+                </Route>
+
+                <Route key="$${ctx:serviceName}">
+                    <RollingFile name="RollingFile-default" 
+                                 fileName="${BASE_LOG_PATH}/general/system-fallback.log"
+                                 filePattern="${BASE_LOG_PATH}/general/system-fallback-%d{yyyy-MM-dd}-%i.log.gz">
+                        <JsonTemplateLayout eventTemplateUri="classpath:Log4j2-JsonLayout.json"/>
+                        <Policies>
+                            <SizeBasedTriggeringPolicy size="10 MB" />
+                        </Policies>
+                    </RollingFile>
+                </Route>
+
+            </Routes>
+
+        </Routing>
+
+    </Appenders>
+
+    <Loggers>
+        <Root level="INFO">
+            <AppenderRef ref="ConsoleAppender" />
+            <AppenderRef ref="DynamicRoutingAppender" />
+        </Root>
+    </Loggers>
+
+</Configuration>

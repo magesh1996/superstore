@@ -1,0 +1,12 @@
+{"properties": [
+  {
+    "name": "jwt.secret",
+    "type": "java.lang.String",
+    "description": "a description for 'jwt.secret'"
+  },
+  {
+    "name": "backend.gateway-url",
+    "type": "java.lang.String",
+    "description": "a description for 'backend.gateway-url'"
+  }
+]}

@@ -1,0 +1,30 @@
+{
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.compile.nullAnalysis.mode": "automatic",
+    // "java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx32G -Xms100m -Xlog:disable -DbackgroundCopyExclusions=**/target/**",
+    "java.jdt.ls.vmargs": "-Xms256m -Xmx2G -XX:+UseG1GC -XX:+UseStringDeduplication -Dsun.zip.disableMemoryMapping=true -Xlog:disable -DbackgroundCopyExclusions=**/target/**",
+    "files.exclude": {
+        "/target": true
+    },
+    "terminal.integrated.environmentChangesRelaunch": false,
+    "terminal.integrated.shellIntegration.enabled": false,
+    "files.watcherExclude": {
+        "**/target/**": true
+    },
+    "java.debug.settings.hotCodeReplace": "auto",
+    // "java.import.maven.offline.enabled": true,
+    // "spring-boot.ls.java.home": "C:\\Program Files\\Java\\jdk-25.0.2",
+    // "java.jdt.ls.java.home": "C:\\Program Files\\Java\\jdk-25.0.2"
+    "spring-boot.ls.java.home": "C:\\Program Files\\Java\\jdk-21",
+    "java.jdt.ls.java.home": "C:\\Program Files\\Java\\jdk-21",
+    // JVM's Class Data Sharing (CDS) feature detects that a Java agent (like the Mockito -javaagent flag we added) has modified or appended to the bootstrap class loader. 
+    // CDS disables some optimizations for non-boot classes to ensure security and compatibility.
+    // -Xshare:off is used to disable the Class Data Sharing feature, allowing the Java agent to function correctly without interference from CDS optimizations.
+    // {userHome} -> C:/Users/mages/.m2/repository/org/mockito/mockito-core/5.23.0/mockito-core-5.23.0.jar
+    "java.test.config": {
+    "vmArgs": [
+        "-Xshare:off",
+        "-javaagent:${userHome}/.m2/repository/org/mockito/mockito-core/5.23.0/mockito-core-5.23.0.jar"
+    ]
+    }
+}

@@ -1,0 +1,12 @@
+{"properties": [
+  {
+    "name": "jwt.secret",
+    "type": "java.lang.String",
+    "description": "a description for 'jwt.secret'"
+  },
+  {
+    "name": "service-product-mcp.token",
+    "type": "java.lang.String",
+    "description": "a description for 'service-product-mcp.token'"
+  }
+]}

@@ -1,0 +1,17 @@
+{"properties": [
+  {
+    "name": "spring.kafka.bootstrap-servers",
+    "type": "java.lang.String",
+    "description": "a description for 'spring.kafka.bootstrap-servers'"
+  },
+  {
+    "name": "jwt.secret",
+    "type": "java.lang.String",
+    "description": "a description for 'jwt.secret'"
+  },
+  {
+    "name": "jwt.public-key-location",
+    "type": "java.lang.String",
+    "description": "a description for 'jwt.public-key-location'"
+  }
+]}
