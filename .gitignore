@@ -1,0 +1,7 @@
+# ignore the entire keys directory
+keys/
+
+# ignore key files anywhere in the repo
+*.pem
+*.key
+id_rsa*
