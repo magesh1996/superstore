@@ -5,3 +5,6 @@ keys/
 *.pem
 *.key
 id_rsa*
+
+# ignore local modernizer runtime tools and hooks
+.github/modernize/
