@@ -1,0 +1,54 @@
+# disables multi-tenancy and authentication. 
+# anyone who can reach the Loki endpoint can write and query logs. 
+# this is typical for local development, testing, or private, secure internal networks.
+auth_enabled: false
+
+server:
+  # the standard port where Loki receives log data via HTTP (e.g., from Alloy) and serves queries/API requests.
+  http_listen_port: 3100
+  # the port used for internal gRPC communication between Loki components.
+  grpc_listen_port: 9096
+
+common:
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    # the date from which this schema rule applies.
+    - from: 2025-01-01
+      # uses the modern TSDB (Time Series Database) engine for indexing and saves the actual log chunks to the local filesystem.
+      store: tsdb
+      object_store: filesystem
+      # uses schema version 13, creating a new index partition every 24 hours.
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  filesystem:
+    directory: /loki/chunks
+
+# manages background tasks like cleaning up old logs and handling deletion requests.
+compactor:
+  working_directory: /loki/compactor
+  # turns on log deletion based on time, without this, logs would accumulate forever.
+  retention_enabled: true
+  delete_request_store: filesystem
+
+# enforces rules on data ingestion and retention.
+limits_config:
+  # keeps logs for 168 hours (which equals 7 days) before deleting them.
+  retention_period: 168h
+  # enables a modern Loki feature allowing extra contextual metadata to be stored alongside logs for better querying performance.
+  allow_structured_metadata: true
+  # allows volume queries and metrics generation out of log streams.
+  volume_enabled: true
+
+analytics:
+  # opts out of sending anonymous usage telemetry and statistics back to Grafana Labs.
+  reporting_enabled: false

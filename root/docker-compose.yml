@@ -7,74 +7,300 @@
 # application.properties via Spring Boot's relaxed environment-variable binding 
 # (EXAMPLE : SPRING_DATASOURCE_URL overrides spring.datasource.url).
 
+# Spring Boot environment conversion rules are:
+# . becomes _
+# - is removed
+# names become uppercase
+# jwt.public-key-location -> JWT_PUBLICKEYLOCATION
+
+# docker Compose uses the directory containing the Compose file as the default project name (root),
+# so set the project name explicitly by adding this.
+# name: superstore
+name: ${COMPOSE_PROJECT_NAME:-superstore}
+
 services:
 
   # ---------------------------------------------------------------------
   # infrastructure
   # ---------------------------------------------------------------------
 
-  oracle:
-    image: gvenzl/oracle-free:23-slim
-    container_name: superstore-oracle
-    environment:
-      ORACLE_PASSWORD: superstore          # SYS/SYSTEM password
-      APP_USER: superstore                 # auto-creates the schema/user the apps use
-      APP_USER_PASSWORD: superstore
-    ports:
-      - "1521:1521"
-    volumes:
-      - oracle-data:/opt/oracle/oradata
-    healthcheck:
-      test: ["CMD", "healthcheck.sh"]
-      interval: 15s
-      timeout: 10s
-      retries: 20
-      start_period: 60s
+  # oracle:
+  #   image: gvenzl/oracle-free:23-slim
+  #   container_name: superstore-oracle
+  #   environment:
+  #     ORACLE_PASSWORD: superstore          # SYS/SYSTEM password
+  #     APP_USER: superstore                 # auto-creates the schema/user the apps use
+  #     APP_USER_PASSWORD: superstore
+  #   ports:
+  #     - "1522:1521"
+  #   volumes:
+  #     - oracle-data:/opt/oracle/oradata
+  #   healthcheck:
+  #     test: ["CMD", "healthcheck.sh"]
+  #     interval: 15s
+  #     timeout: 10s
+  #     retries: 20
+  #     start_period: 60s
 
   postgres:
-    image: postgres:16-alpine
-    container_name: superstore-postgres
+    # image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
+    # container_name: superstore-postgres
     environment:
-      POSTGRES_DB: superstore
-      POSTGRES_USER: superstore
-      POSTGRES_PASSWORD: superstore
+      # POSTGRES_DB: superstore
+      # POSTGRES_USER: superstore
+      # POSTGRES_PASSWORD: superstore
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      # - "5433:5432"
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init/01-create-schema.sql:/docker-entrypoint-initdb.d/01-create-schema.sql:ro
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 1G
+    #     reservations:
+    #       memory: 512M
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U superstore -d superstore"]
+      # test: ["CMD-SHELL", "pg_isready -U superstore -d superstore"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
       timeout: 5s
       retries: 10
 
   redis:
     image: redis:7-alpine
-    container_name: superstore-redis
+    # container_name: superstore-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 512M
+    #     reservations:
+    #       memory: 256M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   kafka:
     image: apache/kafka:3.8.0
-    container_name: superstore-kafka
+    # container_name: superstore-kafka
+    # Kafka is actually binding to three distinct internal ports inside the container:
+    # 9092: PLAINTEXT listener (used for internal Docker communication between microservices).
+    # 9093: CONTROLLER listener (used internally by KRaft for consensus management).
+    # 9094: EXTERNAL listener (used for external connections from your host machine).
     ports:
-      - "9092:9092"
+      - "9094:9094"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://:9092,EXTERNAL://:9094,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       CLUSTER_ID: superstore-kraft-cluster-1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+      - kafka-logs:/tmp/kraft-combined-logs
+      - kafka-secrets:/etc/kafka/secrets
+      - kafka-config:/mnt/shared/config
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 2G
+    #     reservations:
+    #       memory: 1G
+    depends_on:
+      redis:
+        condition: service_healthy
+  
+  akhq:
+    image: tchiotludo/akhq:latest
+    # container_name: superstore-akhq
+    profiles: ["tools"]
+    # port conflicts only happen if two containers try to map to the same port on the host machine.
+    # inside Docker's internal network: every service gets its own unique IP address and hostname.
+    # service-app listens on service-app:8080
+    # akhq listens on akhq:8080
+    # because they have separate internal hostnames/IPs, their internal ports do not touch or collide.
+    ports:
+      - "8090:8080"
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            docker-kafka:
+              properties:
+                bootstrap.servers: "kafka:9092"
+    volumes:
+      - akhq-data:/app/store
+    # healthcheck:
+    #   test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 20s
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # prometheus:
+  #   image: prom/prometheus:v2.54.1
+  #   # container_name: superstore-prometheus
+  #   profiles: ["observability"]
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+  #     - prometheus-data:/prometheus
+  #   command:
+  #     - "--config.file=/etc/prometheus/prometheus.yml"
+  #   # deploy:
+  #   #   resources:
+  #   #     limits:
+  #   #       memory: 512M
+  #   #     reservations:
+  #   #       memory: 256M
+  
+  # grafana:
+  #   image: grafana/grafana:11.1.0
+  #   # container_name: superstore-grafana
+  #   profiles: ["observability"]
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_USER=admin
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   volumes:
+  #     - grafana-data:/var/lib/grafana
+  #     - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+  #   # deploy:
+  #   #   resources:
+  #   #     limits:
+  #   #       memory: 512M
+  #   #     reservations:
+  #   #       memory: 256M
+  #   depends_on:
+  #     prometheus:
+  #       condition: service_started
+  #     loki:
+  #       condition: service_started
+  #     tempo:
+  #       condition: service_started
+  #     pyroscope:
+  #       condition: service_started
+  
+  # loki:
+  #   image: grafana/loki:3.2.1
+  #   # container_name: superstore-loki
+  #   profiles: ["observability"]
+  #   command:
+  #     - "-config.file=/etc/loki/loki-config.yml"
+  #   ports:
+  #     - "3100:3100"
+  #   volumes:
+  #     - ./observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+  #     - loki-data:/loki
+  #   # deploy:
+  #   #   resources:
+  #   #     limits:
+  #   #       memory: 256M
+  #   #     reservations:
+  #   #       memory: 128M
+
+  # tempo:
+  #   image: grafana/tempo:2.6.1
+  #   # container_name: superstore-tempo
+  #   profiles: ["observability"]
+  #   command:
+  #     - "-config.file=/etc/tempo/tempo-config.yml"
+  #   ports:
+  #     - "3200:3200"
+  #     - "4317:4317"
+  #     - "4318:4318"
+  #   volumes:
+  #     - ./observability/tempo/tempo-config.yml:/etc/tempo/tempo-config.yml:ro
+  #     - tempo-data:/var/tempo
+  #   # deploy:
+  #   #   resources:
+  #   #     limits:
+  #   #       memory: 256M
+  #   #     reservations:
+  #   #       memory: 128M
+
+  # pyroscope:
+  #   image: grafana/pyroscope:1.13.0
+  #   # container_name: superstore-pyroscope
+  #   profiles: ["observability"]
+  #   command:
+  #     - "server"
+  #   ports:
+  #     - "4040:4040"
+  #   volumes:
+  #     - pyroscope-data:/var/lib/pyroscope
+  #     - pyroscope-storage-data:/data
+  #     - pyroscope-compactor-data:/data-compactor
+  #   # deploy:
+  #   #   resources:
+  #   #     limits:
+  #   #       memory: 256M
+  #   #     reservations:
+  #   #       memory: 128M
+
+  # alloy:
+  #   image: grafana/alloy:v1.4.2
+  #   # container_name: superstore-alloy
+  #   profiles: ["observability"]
+  #   command:
+  #     - "run"
+  #     - "/etc/alloy/config.alloy"
+  #     - "--server.http.listen-addr=0.0.0.0:12345"
+  #   ports:
+  #     - "14317:4317"
+  #     - "14318:4318"
+  #     - "12345:12345" # required for health checks
+  #   volumes:
+  #     - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "ps aux | grep -q alloy || exit 1"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
+  #   # deploy:
+  #   #   resources:
+  #   #     limits:
+  #   #       memory: 256M
+  #   #     reservations:
+  #   #       memory: 128M
+  #   depends_on:
+  #     loki:
+  #       condition: service_started
+  #     tempo:
+  #       condition: service_started
+  #     pyroscope:
+  #       condition: service_started 
 
   # ---------------------------------------------------------------------
   # application services
@@ -84,7 +310,22 @@ services:
     build:
       context: .
       dockerfile: service-eureka/Dockerfile
-    container_name: superstore-eureka
+    # container_name: superstore-eureka
+    # volumes:
+    #   - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+    #   - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
+    # environment:
+    #   JAVA_TOOL_OPTIONS: >-
+    #     -javaagent:/opt/otel/opentelemetry-javaagent.jar
+    #     -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-eureka,server.address=http://pyroscope:4040
+    #     -Dotel.service.name=service-eureka
+    #     -Dotel.exporter.otlp.endpoint=http://alloy:4317
+    #     -Dotel.exporter.otlp.protocol=grpc
+    #     -Dotel.resource.attributes=deployment.environment=compose
+    #   PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+    #   PYROSCOPE_APPLICATION_NAME: service-eureka
+    #   OTEL_LOGS_EXPORTER: none
+    #   OTEL_METRICS_EXPORTER: none
     ports:
       - "8761:8761"
     healthcheck:
@@ -93,35 +334,99 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 1G
+    #     reservations:
+    #       memory: 512M
+    # depends_on:
+    #   alloy:
+    #     condition: service_healthy
+    #   akhq:
+    #     condition: service_started
 
   gateway:
     build:
       context: .
       dockerfile: service-gateway/Dockerfile
-    container_name: superstore-gateway
+    # container_name: superstore-gateway
+    # volumes:
+    #   - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+    #   - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
     environment:
+      JWT_PUBLICKEYLOCATION: file:/run/secrets/public.pem
       EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE: http://eureka:eureka@eureka:8761/eureka/
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # JAVA_TOOL_OPTIONS: >-
+      #   -javaagent:/opt/otel/opentelemetry-javaagent.jar
+      #   -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-gateway,server.address=http://pyroscope:4040
+      #   -Dotel.service.name=service-gateway
+      #   -Dotel.exporter.otlp.endpoint=http://alloy:4317
+      #   -Dotel.exporter.otlp.protocol=grpc
+      #   -Dotel.resource.attributes=deployment.environment=compose
+      # PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      # PYROSCOPE_APPLICATION_NAME: service-gateway
+      # OTEL_LOGS_EXPORTER: none
+      # OTEL_METRICS_EXPORTER: none
+    secrets:
+      - source: jwt-public-key
+        target: public.pem
     ports:
       - "9000:9000"
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 1G
+    #     reservations:
+    #       memory: 512M
     depends_on:
       eureka:
         condition: service_healthy
-
-  service-product:
+  
+  service-security:
     build:
       context: .
-      dockerfile: service-product/Dockerfile
-    container_name: superstore-service-product
+      dockerfile: service-security/Dockerfile
+    # container_name: superstore-service-security
+    # volumes:
+    #   - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+    #   - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/superstore
-      SPRING_DATASOURCE_USERNAME: superstore
-      SPRING_DATASOURCE_PASSWORD: superstore
+      JWT_PRIVATEKEYLOCATION: file:/run/secrets/private.pem
+      # SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/superstore
+      # SPRING_DATASOURCE_USERNAME: superstore
+      # SPRING_DATASOURCE_PASSWORD: superstore
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
       EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE: http://eureka:eureka@eureka:8761/eureka/
+      # JAVA_TOOL_OPTIONS: >-
+      #   -javaagent:/opt/otel/opentelemetry-javaagent.jar
+      #   -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-security,server.address=http://pyroscope:4040
+      #   -Dotel.service.name=service-security
+      #   -Dotel.exporter.otlp.endpoint=http://alloy:4317
+      #   -Dotel.exporter.otlp.protocol=grpc
+      #   -Dotel.resource.attributes=deployment.environment=compose
+      # PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      # PYROSCOPE_APPLICATION_NAME: service-security
+      # OTEL_LOGS_EXPORTER: none
+      # OTEL_METRICS_EXPORTER: none
+    secrets:
+      - source: jwt-private-key
+        target: private.pem
     ports:
-      - "8081:8081"
+      - "9100:9100"
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 1G
+    #     reservations:
+    #       memory: 512M
     depends_on:
       eureka:
         condition: service_healthy
@@ -130,6 +435,62 @@ services:
       redis:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      gateway:
+        condition: service_started
+
+  service-product:
+    build:
+      context: .
+      dockerfile: service-product/Dockerfile
+    # container_name: superstore-service-product
+    # volumes:
+    #   - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+    #   - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
+    environment:
+      JWT_PUBLICKEYLOCATION: file:/run/secrets/public.pem
+      # SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/superstore
+      # SPRING_DATASOURCE_USERNAME: superstore
+      # SPRING_DATASOURCE_PASSWORD: superstore
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE: http://eureka:eureka@eureka:8761/eureka/
+      # JAVA_TOOL_OPTIONS: >-
+      #   -javaagent:/opt/otel/opentelemetry-javaagent.jar
+      #   -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-product,server.address=http://pyroscope:4040
+      #   -Dotel.service.name=service-product
+      #   -Dotel.exporter.otlp.endpoint=http://alloy:4317
+      #   -Dotel.exporter.otlp.protocol=grpc
+      #   -Dotel.resource.attributes=deployment.environment=compose
+      # PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      # PYROSCOPE_APPLICATION_NAME: service-product
+      # OTEL_LOGS_EXPORTER: none
+      # OTEL_METRICS_EXPORTER: none
+    secrets:
+      - source: jwt-public-key
+        target: public.pem
+    ports:
+      - "8081:8081"
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 1G
+    #     reservations:
+    #       memory: 512M
+    depends_on:
+      eureka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      service-security:
         condition: service_started
     # by default, Docker only checks if a container is started (service_started), 
     # which just means the process kicked off, not that (service_healthy) the database inside it is actually ready for queries.
@@ -138,49 +499,185 @@ services:
     build:
       context: .
       dockerfile: service-order/Dockerfile
-    container_name: superstore-service-order
+    # container_name: superstore-service-order
+    # volumes:
+    #   - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+    #   - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
     environment:
-      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/FREEPDB1
-      SPRING_DATASOURCE_USERNAME: superstore
-      SPRING_DATASOURCE_PASSWORD: superstore
+      # SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/FREEPDB1
+      # SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/superstore
+      # SPRING_DATASOURCE_USERNAME: superstore
+      # SPRING_DATASOURCE_PASSWORD: superstore
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
       EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE: http://eureka:eureka@eureka:8761/eureka/
+      # JAVA_TOOL_OPTIONS: >-
+      #   -javaagent:/opt/otel/opentelemetry-javaagent.jar
+      #   -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-order,server.address=http://pyroscope:4040
+      #   -Dotel.service.name=service-order
+      #   -Dotel.exporter.otlp.endpoint=http://alloy:4317
+      #   -Dotel.exporter.otlp.protocol=grpc
+      #   -Dotel.resource.attributes=deployment.environment=compose
+      # PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      # PYROSCOPE_APPLICATION_NAME: service-order
+      # OTEL_LOGS_EXPORTER: none
+      # OTEL_METRICS_EXPORTER: none
     ports:
       - "8082:8082"
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 1G
+    #     reservations:
+    #       memory: 512M
     depends_on:
       eureka:
         condition: service_healthy
-      oracle:
+      # oracle:
+      #   condition: service_healthy
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      service-product:
+        condition: service_started
+  
+  service-chatbot:
+    build:
+      context: .
+      dockerfile: service-chatbot/Dockerfile
+    # container_name: superstore-service-chatbot
+    # volumes:
+    #   - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+    #   - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
+    environment:
+      JWT_PUBLICKEYLOCATION: file:/run/secrets/public.pem
+      # SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/superstore
+      # SPRING_DATASOURCE_USERNAME: superstore
+      # SPRING_DATASOURCE_PASSWORD: superstore
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICE-URL_DEFAULTZONE: http://eureka:eureka@eureka:8761/eureka/
+      SPRING_AI_MCP_CLIENT_STREAMABLEHTTP_CONNECTIONS_SERVER1_URL: http://service-product:8081
+      SPRING_AI_MCP_CLIENT_STREAMABLEHTTP_CONNECTIONS_SERVER1_ENDPOINT: /mcp
+      SERVICE-PRODUCT-MCP_TOKEN: ${SERVICE_PRODUCT_MCP_TOKEN}
+      # JAVA_TOOL_OPTIONS: >-
+      #   -javaagent:/opt/otel/opentelemetry-javaagent.jar
+      #   -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-chatbot,server.address=http://pyroscope:4040
+      #   -Dotel.service.name=service-chatbot
+      #   -Dotel.exporter.otlp.endpoint=http://alloy:4317
+      #   -Dotel.exporter.otlp.protocol=grpc
+      #   -Dotel.resource.attributes=deployment.environment=compose
+      # PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      # PYROSCOPE_APPLICATION_NAME: service-chatbot
+      # OTEL_LOGS_EXPORTER: none
+      # OTEL_METRICS_EXPORTER: none
+    secrets:
+      - source: jwt-public-key
+        target: public.pem
+    ports:
+      - "8083:8083"
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 1G
+    #     reservations:
+    #       memory: 512M
+    depends_on:
+      eureka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      service-order:
         condition: service_started
 
   service-app:
     build:
       context: .
       dockerfile: service-app/Dockerfile
-    container_name: superstore-service-app
+    # container_name: superstore-service-app
+    # volumes:
+    #   - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+    #   - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
     environment:
-      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/FREEPDB1
-      SPRING_DATASOURCE_USERNAME: superstore
-      SPRING_DATASOURCE_PASSWORD: superstore
+      # SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/FREEPDB1
+      # SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/superstore
+      # SPRING_DATASOURCE_USERNAME: superstore
+      # SPRING_DATASOURCE_PASSWORD: superstore
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       BACKEND_GATEWAY-URL: http://gateway:9000
+      # JAVA_TOOL_OPTIONS: >-
+      #   -javaagent:/opt/otel/opentelemetry-javaagent.jar
+      #   -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-app,server.address=http://pyroscope:4040
+      #   -Dotel.service.name=service-app
+      #   -Dotel.exporter.otlp.endpoint=http://alloy:4317
+      #   -Dotel.exporter.otlp.protocol=grpc
+      #   -Dotel.resource.attributes=deployment.environment=compose
+      # PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      # PYROSCOPE_APPLICATION_NAME: service-app
+      # OTEL_LOGS_EXPORTER: none
+      # OTEL_METRICS_EXPORTER: none
     ports:
       - "8080:8080"
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 1G
+    #     reservations:
+    #       memory: 512M
     depends_on:
-      oracle:
+      eureka:
+        condition: service_healthy
+      # oracle:
+      #   condition: service_healthy
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      gateway:
+      kafka:
+        condition: service_healthy
+      service-chatbot:
         condition: service_started
 
 volumes:
-  oracle-data:
+  # oracle-data:
+  # postgres-data:
+  #   name: superstore-postgres-data
   postgres-data:
+  redis-data:
+  kafka-data:
+  kafka-logs:
+  kafka-secrets:
+  kafka-config:
+  akhq-data:
+  # prometheus-data:
+  # grafana-data:
+  # loki-data:
+  # tempo-data:
+  # pyroscope-data:
+  # pyroscope-storage-data:
+  # pyroscope-compactor-data:
+
+secrets:
+  jwt-public-key:
+    file: ../keys/public.pem
+  jwt-private-key:
+    file: ../keys/private.pem

@@ -12,11 +12,14 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
+import org.springframework.ai.chat.model.ChatModel;
 // import org.springframework.ai.chat.messages.SystemMessage;
 // import org.springframework.ai.chat.messages.UserMessage;
 // import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.prompt.PromptTemplate;
-import org.springframework.ai.ollama.api.OllamaChatOptions;
+import org.springframework.ai.google.genai.GoogleGenAiChatModel;
+import org.springframework.ai.ollama.OllamaChatModel;
+// import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.ai.tool.ToolCallbackProvider;
 // import org.springframework.ai.chat.messages.Message;
 // import org.springframework.ai.chat.messages.SystemMessage;
@@ -35,14 +38,21 @@ import reactor.core.publisher.Flux;
 @Service
 public class ChatbotService {
 
-    private final ChatClient chatClient;
+    // private final ChatClient chatClient;
+    private final ChatClient ollamaClient;
+    private final ChatClient geminiClient;
 
     // private final ChatModel chatModel;
     // private final VectorStore vectorStore;
     // private final ChatMemory chatMemory;
-
-    public ChatbotService(ChatClient.Builder chatClientBuilder, VectorStore vectorStore, ToolCallbackProvider mcpToolCallbackProvider) {
+    
     // public ChatbotService(ChatModel chatModel, VectorStore vectorStore) {
+    // public ChatbotService(ChatClient.Builder chatClientBuilder, VectorStore vectorStore, ToolCallbackProvider mcpToolCallbackProvider) {
+    public ChatbotService(
+        OllamaChatModel ollamaModel,
+        GoogleGenAiChatModel geminiModel,
+        VectorStore vectorStore,
+        ToolCallbackProvider mcpToolCallbackProvider) {
 
         // this.chatModel = chatModel;
         // this.vectorStore = vectorStore;
@@ -60,6 +70,10 @@ public class ChatbotService {
             only discuss superstore products, orders, and store policies; politely decline unrelated requests.
             you have access to product lookup tools via MCP.
             use them to fetch exact, real-time product details, stock, or search results when needed.
+            for current product prices, stock, and catalog counts, call the relevant product MCP tool before answering.
+            use all_product for a total product count and count the returned products.
+            never say that you checked or will check unless a tool call has completed.
+            if a tool call fails or returns no usable data, say the lookup failed; do not guess.
             """;
         
         String qaTemplate = """            
@@ -89,22 +103,32 @@ public class ChatbotService {
             .build();
 
         // main ChatClient instance with system prompt, memory advisor, and QA advisor
-        this.chatClient = chatClientBuilder
-            .defaultSystem(systemPrompt)
-            .defaultOptions(OllamaChatOptions.builder().numCtx(2048))
-            // register MCP server tools directly with the ChatClient
-            .defaultTools(mcpToolCallbackProvider)
-            // maintain conversation memory per user/session
-            .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())            
-            // automatically searches PGVector for relevant documents and attaches to prompt
-            .defaultAdvisors(
-                QuestionAnswerAdvisor
-                    .builder(vectorStore)
-                    .searchRequest(searchRequest)
-                    .promptTemplate(PromptTemplate.builder().template(qaTemplate).build())
-                    .build()
-                )
-            .build();
+        // this.chatClient = chatClientBuilder
+        //     .defaultSystem(systemPrompt)
+        //     .defaultOptions(OllamaChatOptions.builder().numCtx(2048))
+        //     // register MCP server tools directly with the ChatClient
+        //     .defaultTools(mcpToolCallbackProvider)
+        //     // maintain conversation memory per user/session
+        //     .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())            
+        //     // automatically searches PGVector for relevant documents and attaches to prompt
+        //     .defaultAdvisors(
+        //         QuestionAnswerAdvisor
+        //             .builder(vectorStore)
+        //             .searchRequest(searchRequest)
+        //             .promptTemplate(PromptTemplate.builder().template(qaTemplate).build())
+        //             .build()
+        //         )
+        //     .build();
+
+        this.ollamaClient = buildClient(
+            ollamaModel, systemPrompt, qaTemplate, searchRequest,
+            chatMemory, vectorStore, mcpToolCallbackProvider
+        );
+
+        this.geminiClient = buildClient(
+            geminiModel, systemPrompt, qaTemplate, searchRequest,
+            chatMemory, vectorStore, mcpToolCallbackProvider
+        );
 
         // test 1 : no advisors at all
         // this.chatClient = chatClientBuilder.defaultSystem(systemPrompt).build();
@@ -120,13 +144,58 @@ public class ChatbotService {
         //     .build();
     }
 
-    public Flux<String> askChatbot(String userConversationId, String userMessage) {
-        return this.chatClient.prompt()
+    private ChatClient buildClient(
+        ChatModel model,
+        String systemPrompt,
+        String qaTemplate,
+        SearchRequest searchRequest,
+        ChatMemory chatMemory,
+        VectorStore vectorStore,
+        ToolCallbackProvider tools) {
+
+        return ChatClient.builder(model)
+            .defaultSystem(systemPrompt)
+            .defaultTools(tools)
+            .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
+            .defaultAdvisors(
+                QuestionAnswerAdvisor.builder(vectorStore)
+                    .searchRequest(searchRequest)
+                    .promptTemplate(PromptTemplate.builder().template(qaTemplate).build())
+                    .build()
+            )
+            .build();
+    }
+
+    // public Flux<String> askChatbot(String userConversationId, String userMessage) {
+    //     return this.chatClient.prompt()
+    //         .user(userMessage)
+    //         // pass the conversation ID to keep context active across messages
+    //         .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, userConversationId))            
+    //         // .call()
+    //         .stream() // stream token chunks from Ollama live
+    //         .content();
+    // }
+
+    public Flux<String> askChatbot(String conversationId, String userMessage) {
+        return stream(ollamaClient, conversationId, userMessage)
+            .switchOnFirst((signal, ollamaStream) -> {
+                if (signal.isOnError()) {
+                    return stream(geminiClient, conversationId, userMessage);
+                }
+                return ollamaStream;
+            });
+    }
+
+    private Flux<String> stream(
+            ChatClient client,
+            String conversationId,
+            String userMessage) {
+
+        return client.prompt()
             .user(userMessage)
-            // pass the conversation ID to keep context active across messages
-            .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, userConversationId))            
-            // .call()
-            .stream() // stream token chunks from Ollama live
+            .advisors(advisor ->
+                advisor.param(ChatMemory.CONVERSATION_ID, conversationId))
+            .stream()
             .content();
     }
 

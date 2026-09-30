@@ -1,0 +1,35 @@
+{
+  "timestamp": {
+    "$resolver": "timestamp",
+    "pattern": {
+      "format": "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZ"
+    }
+  },
+  "thread": {
+    "$resolver": "thread",
+    "field": "name"
+  },
+  "level": {
+    "$resolver": "level",
+    "field": "name"
+  },
+  "serviceName": { 
+    "$resolver": "mdc", 
+    "key": "serviceName" 
+  },
+  "loggerName": {
+    "$resolver": "logger",
+    "field": "name"
+  },
+  "message": {
+    "$resolver": "message"
+  },
+  "mdc": {
+    "$resolver": "mdc"
+  },
+  "exception": {
+    "$resolver": "exception",
+    "field": "stackTrace",
+    "stackTrace": { "stringified": true }
+  }
+}

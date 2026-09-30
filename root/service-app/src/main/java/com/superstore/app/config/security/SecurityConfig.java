@@ -3,17 +3,17 @@ package com.superstore.app.config.security;
 // import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
+// import org.springframework.security.authentication.AuthenticationManager;
 // import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
-//import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+// import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 // import org.springframework.security.core.userdetails.UserDetailsService;
 // import org.springframework.security.core.userdetails.UsernameNotFoundException;
 // import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-// import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 import com.superstore.app.view.AuthView;
@@ -30,6 +30,7 @@ public class SecurityConfig {
             .requestMatchers("/VAADIN/**").permitAll()
             .requestMatchers("/images/**").permitAll()
             .requestMatchers("/fonts/**").permitAll()
+            .requestMatchers("/actuator/health", "/actuator/prometheus", "/actuator/health/**").permitAll()
             // .requestMatchers("/actuator", "/actuator/**").hasRole("ADMIN"))
             // .requestMatchers("/actuator", "/actuator/**").hasAuthority("ADMIN"))
             // target all Actuator endpoints on port 8079
@@ -65,10 +66,12 @@ public class SecurityConfig {
     //     return username -> repo.findByUsernameOrMobile(username, username).orElseThrow(() -> new UsernameNotFoundException(username));
     // }
 
-    // @Bean
-    // public PasswordEncoder passwordEncoder() {
-    //     return new BCryptPasswordEncoder();
-    // }
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        // return new BCryptPasswordEncoder();
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+        // this supports both {noop}admin and {bcrypt}... database passwords.
+    }
 
     // @Bean
     // public DaoAuthenticationProvider daoAuthenticationProvider(
@@ -84,10 +87,10 @@ public class SecurityConfig {
     //     return provider;
     // }
 
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
-        return configuration.getAuthenticationManager();
-    }
+    // @Bean
+    // public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+    //     return configuration.getAuthenticationManager();
+    // }
 
     // @Bean
     // public WebSecurityCustomizer webSecurityCustomizer() {

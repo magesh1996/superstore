@@ -1,7 +1,6 @@
 package com.superstore.product.config.security;
 
 import java.io.IOException;
-// import java.nio.charset.StandardCharsets;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
@@ -88,6 +87,7 @@ public class SecurityConfig {
         http
             .authorizeHttpRequests(auth -> auth
             // .requestMatchers("/product", "/product/**").permitAll()
+            .requestMatchers("/actuator/health", "/actuator/prometheus", "/actuator/health/**").permitAll()
             .requestMatchers("/error").permitAll()
             .requestMatchers("/product", "/product/**").authenticated()
             .anyRequest().authenticated()
@@ -186,6 +186,13 @@ public class SecurityConfig {
                                         FilterChain filterChain) throws ServletException, IOException {
             String auth = request.getHeader("Authorization");
             System.err.println("RAW AUTH HEADER: " + auth);
+            // System.err.println(request.getMethod() + " " + request.getRequestURI() + " RAW AUTH HEADER: " + auth);
+            System.err.println(
+                "method=" + request.getMethod() + " " + request.getRequestURI()
+                + "\nfrom=" + request.getRemoteAddr()
+                + "\nuserAgent=" + request.getHeader("User-Agent")
+                + "\nauth=" + auth
+            );
             filterChain.doFilter(request, response);
         }
     }

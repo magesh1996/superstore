@@ -1,0 +1,223 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: ["observability"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    profiles: ["observability"]
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
+      pyroscope:
+        condition: service_started
+
+  loki:
+    image: grafana/loki:3.2.1
+    profiles: ["observability"]
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    profiles: ["observability"]
+    command:
+      - "-config.file=/etc/tempo/tempo-config.yml"
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./observability/tempo/tempo-config.yml:/etc/tempo/tempo-config.yml:ro
+      - tempo-data:/var/tempo
+
+  pyroscope:
+    image: grafana/pyroscope:1.13.0
+    profiles: ["observability"]
+    command:
+      - "server"
+    ports:
+      - "4040:4040"
+    volumes:
+      - pyroscope-data:/var/lib/pyroscope
+      - pyroscope-storage-data:/data
+      - pyroscope-compactor-data:/data-compactor
+
+  alloy:
+    image: grafana/alloy:v1.4.2
+    profiles: ["observability"]
+    command:
+      - "run"
+      - "/etc/alloy/config.alloy"
+      - "--server.http.listen-addr=0.0.0.0:12345"
+    ports:
+      - "14317:4317"
+      - "14318:4318"
+      - "12345:12345"
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep -q alloy || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
+      pyroscope:
+        condition: service_started
+
+  eureka:
+    volumes:
+      - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+      - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/opt/otel/opentelemetry-javaagent.jar
+        -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-eureka,server.address=http://pyroscope:4040
+        -Dotel.service.name=service-eureka
+        -Dotel.exporter.otlp.endpoint=http://alloy:4317
+        -Dotel.exporter.otlp.protocol=grpc
+        -Dotel.resource.attributes=deployment.environment=${DEPLOYMENT_ENVIRONMENT:-compose}
+      PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      PYROSCOPE_APPLICATION_NAME: service-eureka
+      OTEL_LOGS_EXPORTER: none
+      OTEL_METRICS_EXPORTER: none
+
+  gateway:
+    volumes:
+      - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+      - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/opt/otel/opentelemetry-javaagent.jar
+        -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-gateway,server.address=http://pyroscope:4040
+        -Dotel.service.name=service-gateway
+        -Dotel.exporter.otlp.endpoint=http://alloy:4317
+        -Dotel.exporter.otlp.protocol=grpc
+        -Dotel.resource.attributes=deployment.environment=${DEPLOYMENT_ENVIRONMENT:-compose}
+      PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      PYROSCOPE_APPLICATION_NAME: service-gateway
+      OTEL_LOGS_EXPORTER: none
+      OTEL_METRICS_EXPORTER: none
+
+  service-security:
+    volumes:
+      - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+      - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/opt/otel/opentelemetry-javaagent.jar
+        -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-security,server.address=http://pyroscope:4040
+        -Dotel.service.name=service-security
+        -Dotel.exporter.otlp.endpoint=http://alloy:4317
+        -Dotel.exporter.otlp.protocol=grpc
+        -Dotel.resource.attributes=deployment.environment=${DEPLOYMENT_ENVIRONMENT:-compose}
+      PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      PYROSCOPE_APPLICATION_NAME: service-security
+      OTEL_LOGS_EXPORTER: none
+      OTEL_METRICS_EXPORTER: none
+
+  service-product:
+    volumes:
+      - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+      - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/opt/otel/opentelemetry-javaagent.jar
+        -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-product,server.address=http://pyroscope:4040
+        -Dotel.service.name=service-product
+        -Dotel.exporter.otlp.endpoint=http://alloy:4317
+        -Dotel.exporter.otlp.protocol=grpc
+        -Dotel.resource.attributes=deployment.environment=${DEPLOYMENT_ENVIRONMENT:-compose}
+      PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      PYROSCOPE_APPLICATION_NAME: service-product
+      OTEL_LOGS_EXPORTER: none
+      OTEL_METRICS_EXPORTER: none
+
+  service-order:
+    volumes:
+      - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+      - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/opt/otel/opentelemetry-javaagent.jar
+        -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-order,server.address=http://pyroscope:4040
+        -Dotel.service.name=service-order
+        -Dotel.exporter.otlp.endpoint=http://alloy:4317
+        -Dotel.exporter.otlp.protocol=grpc
+        -Dotel.resource.attributes=deployment.environment=${DEPLOYMENT_ENVIRONMENT:-compose}
+      PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      PYROSCOPE_APPLICATION_NAME: service-order
+      OTEL_LOGS_EXPORTER: none
+      OTEL_METRICS_EXPORTER: none
+
+  service-chatbot:
+    volumes:
+      - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+      - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/opt/otel/opentelemetry-javaagent.jar
+        -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-chatbot,server.address=http://pyroscope:4040
+        -Dotel.service.name=service-chatbot
+        -Dotel.exporter.otlp.endpoint=http://alloy:4317
+        -Dotel.exporter.otlp.protocol=grpc
+        -Dotel.resource.attributes=deployment.environment=${DEPLOYMENT_ENVIRONMENT:-compose}
+      PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      PYROSCOPE_APPLICATION_NAME: service-chatbot
+      OTEL_LOGS_EXPORTER: none
+      OTEL_METRICS_EXPORTER: none
+
+  service-app:
+    volumes:
+      - ./observability/agents/opentelemetry-javaagent.jar:/opt/otel/opentelemetry-javaagent.jar:ro
+      - ./observability/agents/pyroscope.jar:/opt/pyroscope/pyroscope.jar:ro
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/opt/otel/opentelemetry-javaagent.jar
+        -javaagent:/opt/pyroscope/pyroscope.jar=application.name=service-app,server.address=http://pyroscope:4040
+        -Dotel.service.name=service-app
+        -Dotel.exporter.otlp.endpoint=http://alloy:4317
+        -Dotel.exporter.otlp.protocol=grpc
+        -Dotel.resource.attributes=deployment.environment=${DEPLOYMENT_ENVIRONMENT:-compose}
+      PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      PYROSCOPE_APPLICATION_NAME: service-app
+      OTEL_LOGS_EXPORTER: none
+      OTEL_METRICS_EXPORTER: none
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  tempo-data:
+  pyroscope-data:
+  pyroscope-storage-data:
+  pyroscope-compactor-data:

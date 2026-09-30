@@ -8,6 +8,8 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
 import com.superstore.app.client.SecurityClient;
@@ -246,7 +248,19 @@ public class AuthView extends VerticalLayout {
                 Notify.error(message);
             }
             catch (RuntimeException ex) {
-                Notify.error(ex);
+                // Notify.error(ex);
+                if (ex instanceof HttpClientErrorException.Unauthorized) {
+                    // specifically handles the 401 Unauthorized: [no body]
+                    Notify.error("invalid username or password");
+                } 
+                else if (ex instanceof RestClientResponseException restEx) {
+                    // handles other server/API status errors (e.g., 403 Forbidden, 500 Server Error)
+                    Notify.error("authentication service error (" + restEx.getStatusCode() + "), please try again later.");
+                } 
+                else {
+                    // fallback for generic logic or connection runtime exceptions
+                    Notify.error("an unexpected error occurred: " + ex.getMessage());
+                }
             }
         }
         else {

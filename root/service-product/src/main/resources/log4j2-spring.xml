@@ -9,7 +9,8 @@
     <Appenders>
         
         <Console name="ConsoleAppender" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            <!-- <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/> -->
+            <JsonTemplateLayout eventTemplateUri="classpath:Log4j2-JsonLayout.json"/>
         </Console>
 
         <Routing name="DynamicRoutingAppender">

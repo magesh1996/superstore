@@ -8,3 +8,11 @@ id_rsa*
 
 # ignore local modernizer runtime tools and hooks
 .github/modernize/
+
+root/prometheus/data/
+
+# ignore environment-specific secrets
+root/.env.prod
+root/.env.uat
+root/.env.test
+root/.env.dev
