@@ -1,0 +1,58 @@
+# superstore: a platform designed to scale retail and business operations.
+
+browser
+  |
+  v
+service-app             : 8080
+  |
+  v service-eureka      : 8761
+service-gateway         : 9000
+  |
+  +--> service-security : 9100
+  +--> service-product  : 8081
+  +--> service-order    : 8082
+  +--> service-chatbot  : 8083
+
+# Grafana URLs:
+  Grafana   : http://localhost:3000
+  Prometheus: http://localhost:9090
+  Loki      : http://localhost:3100
+  Tempo     : http://localhost:3200
+  Pyroscope : http://localhost:4040 / http://host.docker.internal:4040
+
+# dev: base services only, no observability
+docker compose --env-file .env.dev up --build -d
+# for specific services
+docker compose --env-file .env.dev up -d --build service-product service-chatbot
+
+# test: base services only, no observability
+docker compose --env-file .env.test up --build -d
+
+# uat: include observability
+docker compose --env-file .env.uat -f docker-compose.yml -f docker-compose.observability.yml up -d
+
+# prod: include observability
+docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.observability.yml up -d
+
+# starts all default services plus AKHQ:
+docker compose --env-file .env.dev --profile tools up -d
+# ppen AKHQ at http://localhost:8090
+
+# start only AKHQ and its dependencies (Kafka, Redis, and Postgres):
+docker compose --env-file .env.dev --profile tools up -d akhq
+# open AKHQ at http://localhost:8090
+
+.vscode/launch.json
+// "envFile": "${workspaceFolder}/.env"
+"envFile": [
+    "${workspaceFolder}/.env",
+    "${workspaceFolder}/.env.dev"
+]
+
+.\mvnw.cmd -pl service-chatbot dependency:tree
+
+# to list files in git:
+$ git ls-files | grep -E '\.(js|jsx|ts|tsx)$'
+
+# to check connection:
+PS C:\project\superstore\root> Test-NetConnection localhost -Port 8081

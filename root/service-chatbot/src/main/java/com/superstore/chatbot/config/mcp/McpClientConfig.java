@@ -10,7 +10,7 @@ import io.modelcontextprotocol.client.transport.customizer.McpSyncHttpClientRequ
 public class McpClientConfig {    
 
     @Bean
-    McpSyncHttpClientRequestCustomizer requestCustomizer(@Value("${service-product-mcp.token}") String token) {
+    McpSyncHttpClientRequestCustomizer requestCustomizer(@Value("${service-product-mcp.token:}") String token) {
         return (builder, method, endpoint, body, context) ->
             builder.header("Authorization", "Bearer " + token);
     }

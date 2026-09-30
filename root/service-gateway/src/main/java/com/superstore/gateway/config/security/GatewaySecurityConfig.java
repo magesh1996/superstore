@@ -3,6 +3,7 @@ package com.superstore.gateway.config.security;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
+import java.security.Principal;
 import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
@@ -11,6 +12,7 @@ import java.util.Base64;
 // import javax.crypto.spec.SecretKeySpec;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
@@ -25,6 +27,8 @@ import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+
+import reactor.core.publisher.Mono;
 
 @Configuration
 @EnableWebFluxSecurity // WebFlux annotation.
@@ -96,5 +100,32 @@ public class GatewaySecurityConfig {
                 .roles("USER")
                 .build();
         return new InMemoryUserDetailsManager(user);
+    }
+
+    // @Bean
+    // public KeyResolver userKeyResolver() {
+    //     return exchange -> {
+    //         return Mono.justOrEmpty(exchange.getPrincipal()
+    //                 .map(Principal::getName)
+    //                 .switchIfEmpty(Mono.just(
+    //                     exchange.getRequest()
+    //                         .getRemoteAddress() != null
+    //                         ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
+    //                         : "anonymous"
+    //                 )))
+    //                 .onErrorReturn("anonymous");
+    //     };
+    // }
+    
+    @SuppressWarnings("null")
+    @Bean
+    public KeyResolver userKeyResolver() {
+        return exchange -> exchange.getPrincipal()
+            .map(Principal::getName)
+            .switchIfEmpty(Mono.just(
+                exchange.getRequest().getRemoteAddress() != null
+                    ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
+                    : "anonymous"
+            ));
     }
 }

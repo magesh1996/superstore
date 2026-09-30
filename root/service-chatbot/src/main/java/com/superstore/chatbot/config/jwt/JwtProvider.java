@@ -2,7 +2,7 @@ package com.superstore.chatbot.config.jwt;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
+// import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 @Component
 public class JwtProvider {
 
-    @Value("${jwt.secret}")
+    // @Value("${jwt.secret}")
     private String jwtSecret;
 
     @SuppressWarnings("null")
