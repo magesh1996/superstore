@@ -1,6 +1,6 @@
+```
 # superstore: a platform designed to scale retail and business operations.
 
-```
 [browser]
   |
   v
@@ -22,6 +22,7 @@
 -----------------------------------------------------
 ```
 
+```
 [service-monolith]: (module-order) ---> (Kafka topic: [order-created-event]  ) ---> [service-payment]
 [service-monolith]: (module-order) <--- (Kafka topic: [payment-status-event] ) <--- [service-payment]
 
@@ -53,3 +54,4 @@ docker compose --env-file .env.dev --profile tools up -d akhq
 
 # for specific services
 docker compose --env-file .env.dev up -d --build service-product service-chatbot
+```
